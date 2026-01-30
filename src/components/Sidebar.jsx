@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Sidebar = ({ activeTab, setActiveTab, savedRecords = [], onRecordClick, language, toggleLanguage, theme, toggleTheme, t }) => {
+const Sidebar = ({ activeTab, setActiveTab, savedRecords = [], onRecordClick, language, toggleLanguage, theme, toggleTheme, user, onLogout, t }) => {
     const menuItems = [
         { id: 'dashboard', label: t.sidebar.dashboard, icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
         { id: 'patients', label: t.sidebar.patients, icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
@@ -72,13 +72,16 @@ const Sidebar = ({ activeTab, setActiveTab, savedRecords = [], onRecordClick, la
 
                 <div style={styles.profileCard}>
                     <div style={styles.profileTop}>
-                        <div style={styles.avatar}>K</div>
+                        <div style={styles.avatar}>{user?.user_metadata?.full_name?.charAt(0) || user?.email?.charAt(0).toUpperCase()}</div>
                         <div style={styles.statusDot} />
                     </div>
                     <div style={styles.profileInfo}>
-                        <div style={styles.userName}>{t.common.doctor} <span style={styles.userBadge}>{t.common.md}</span></div>
+                        <div style={styles.userName}>{user?.user_metadata?.full_name || t.common.doctor} <span style={styles.userBadge}>{t.common.md}</span></div>
                         <div style={styles.userRole}>{t.common.specialty}</div>
                     </div>
+                    <button onClick={onLogout} style={styles.logoutBtn} title="Logout">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+                    </button>
                 </div>
             </div>
         </aside>
@@ -302,6 +305,22 @@ const styles = {
         color: 'var(--text-muted)',
         marginTop: '0.15rem',
     },
+    logoutBtn: {
+        background: 'none',
+        border: 'none',
+        color: 'var(--text-muted)',
+        cursor: 'pointer',
+        padding: '0.5rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: '8px',
+        transition: 'all 0.2s',
+        '&:hover': {
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            color: 'var(--danger)',
+        }
+    }
 };
 
 export default Sidebar;

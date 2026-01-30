@@ -3,16 +3,36 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import PatientList from './components/PatientList';
 import MedicalRecord from './components/MedicalRecord';
+import Login from './components/Login';
+import Signup from './components/Signup';
 import { translations } from './translations';
+import { supabase } from './supabaseClient';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [session, setSession] = useState(null);
+  const [authView, setAuthView] = useState('login'); // 'login' or 'signup'
   const [savedRecords, setSavedRecords] = useState([]);
   const [selectedRecordId, setSelectedRecordId] = useState(null);
   const [language, setLanguage] = useState(localStorage.getItem('medicloud_lang') || 'ko');
   const [theme, setTheme] = useState(localStorage.getItem('medicloud_theme') || 'light');
 
   const t = translations[language];
+
+  // 인증 상태 감시
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // 테마 적용
   useEffect(() => {
@@ -71,6 +91,22 @@ function App() {
     }
   };
 
+  if (!session) {
+    return authView === 'login' ? (
+      <Login
+        onSwitchToSignup={() => setAuthView('signup')}
+        language={language}
+        t={t}
+      />
+    ) : (
+      <Signup
+        onSwitchToLogin={() => setAuthView('login')}
+        language={language}
+        t={t}
+      />
+    );
+  }
+
   return (
     <div style={styles.appContainer}>
       <Sidebar
@@ -82,6 +118,8 @@ function App() {
         toggleLanguage={toggleLanguage}
         theme={theme}
         toggleTheme={toggleTheme}
+        user={session.user}
+        onLogout={() => supabase.auth.signOut()}
         t={t}
       />
       <main style={styles.main}>
