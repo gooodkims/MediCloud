@@ -68,6 +68,7 @@ const styles = {
         padding: '2rem',
         flex: 1,
         overflowY: 'auto',
+        backgroundColor: 'var(--bg-color)',
     },
     header: {
         display: 'flex',
@@ -78,6 +79,7 @@ const styles = {
     title: {
         fontSize: '1.875rem',
         fontWeight: '700',
+        color: 'var(--text-main)',
     },
     actions: {
         display: 'flex',
@@ -100,6 +102,8 @@ const styles = {
         width: '300px',
         fontSize: '0.9rem',
         outline: 'none',
+        backgroundColor: 'var(--card-bg)',
+        color: 'var(--text-main)',
     },
     addButton: {
         padding: '0.625rem 1.25rem',
@@ -121,7 +125,7 @@ const styles = {
         borderCollapse: 'collapse',
     },
     tableHeader: {
-        backgroundColor: '#f8fafc',
+        backgroundColor: 'var(--bg-color)',
         borderBottom: '1px solid var(--border-color)',
     },
     th: {
@@ -132,8 +136,9 @@ const styles = {
         fontWeight: '600',
     },
     tableRow: {
-        borderBottom: '1px solid #f1f5f9',
+        borderBottom: '1px solid var(--border-color)',
         transition: 'background-color 0.2s',
+        color: 'var(--text-main)',
     },
     td: {
         padding: '1.25rem 1rem',

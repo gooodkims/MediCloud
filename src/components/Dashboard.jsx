@@ -1,99 +1,124 @@
 import React from 'react';
 
-const Dashboard = () => {
+const Dashboard = ({ language, t }) => {
     return (
         <div style={styles.container}>
             <header style={styles.header}>
-                <h2 style={styles.title}>대시보드</h2>
-                <p style={styles.subtitle}>오늘의 진료 현황 및 병원 상태입니다.</p>
+                <div>
+                    <h2 style={styles.title}>{t.dashboard.title}</h2>
+                    <p style={styles.subtitle}>
+                        {language === 'ko'
+                            ? `2024년 1월 30일 화요일 | ${t.common.doctor} 진료 세션`
+                            : `Tuesday, Jan 30, 2024 | ${t.common.doctor}'s Session`}
+                    </p>
+                </div>
+                <div style={styles.timeDisplay}>
+                    <span style={styles.pulseIcon}>●</span> {language === 'ko' ? '실시간 모니터링 중' : 'Live Monitoring'}
+                </div>
             </header>
 
             <div style={styles.statsGrid}>
                 <div style={styles.statCard}>
                     <div style={styles.statHeader}>
-                        <span style={{ ...styles.statIcon, backgroundColor: '#dcfce7', color: '#166534' }}>👥</span>
-                        <span style={styles.statLabel}>전체 환자</span>
+                        <div style={{ ...styles.statIcon, backgroundColor: 'var(--primary-light)', color: 'var(--primary-color)' }}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                        </div>
+                        <span style={styles.statLabel}>{language === 'ko' ? '내원 환자' : 'Daily Patients'}</span>
                     </div>
                     <div style={styles.statValue}>1,284</div>
-                    <div style={styles.statTrend}>↑ 12% vs last month</div>
+                    <div style={styles.statTrend}>
+                        <span style={{ color: 'var(--success)', fontWeight: '600' }}>↑ 12%</span>
+                        <span style={{ color: 'var(--text-muted)', marginLeft: '4px' }}>{language === 'ko' ? '지난달 대비' : 'vs last month'}</span>
+                    </div>
                 </div>
                 <div style={styles.statCard}>
                     <div style={styles.statHeader}>
-                        <span style={{ ...styles.statIcon, backgroundColor: '#e0f2fe', color: '#075985' }}>📅</span>
-                        <span style={styles.statLabel}>오늘의 예약</span>
+                        <div style={{ ...styles.statIcon, backgroundColor: 'var(--secondary-light)', color: 'var(--secondary-color)' }}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                        </div>
+                        <span style={styles.statLabel}>{language === 'ko' ? '금일 예약' : 'Appointments'}</span>
                     </div>
                     <div style={styles.statValue}>24</div>
-                    <div style={styles.statTrend}>Next at 14:00</div>
+                    <div style={styles.statTrend}>{language === 'ko' ? '다음 진료' : 'Next'} <span style={{ color: 'var(--text-main)', fontWeight: '600' }}>14:00</span></div>
                 </div>
                 <div style={styles.statCard}>
                     <div style={styles.statHeader}>
-                        <span style={{ ...styles.statIcon, backgroundColor: '#fef9c3', color: '#854d0e' }}>📝</span>
-                        <span style={styles.statLabel}>대기 환자</span>
+                        <div style={{ ...styles.statIcon, backgroundColor: 'rgba(234, 179, 8, 0.15)', color: 'var(--warning)' }}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-3-3.87" /><path d="M9 21v-2a4 4 0 0 1 4-4" /><circle cx="9" cy="7" r="4" /></svg>
+                        </div>
+                        <span style={styles.statLabel}>{t.dashboard.waitingTitle}</span>
                     </div>
-                    <div style={styles.statValue}>5</div>
-                    <div style={styles.statTrend}>Avg. wait: 15min</div>
+                    <div style={styles.statValue}>12 <span style={styles.statUnit}>{t.dashboard.waitingCount}</span></div>
+                    <div style={styles.statTrend}>+2 {language === 'ko' ? '한 시간 전 대비' : 'from last hour'}</div>
                 </div>
                 <div style={styles.statCard}>
                     <div style={styles.statHeader}>
-                        <span style={{ ...styles.statIcon, backgroundColor: '#fee2e2', color: '#991b1b' }}>🚑</span>
-                        <span style={styles.statLabel}>응급 내원</span>
+                        <div style={{ ...styles.statIcon, backgroundColor: 'rgba(239, 68, 68, 0.15)', color: 'var(--danger)' }}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                        </div>
+                        <span style={styles.statLabel}>{t.dashboard.systemAlert}</span>
                     </div>
-                    <div style={styles.statValue}>2</div>
-                    <div style={styles.statTrend}>Immediate attention</div>
+                    <div style={styles.statValue}>3 <span style={styles.statUnit}>{language === 'ko' ? '건' : 'Case'}</span></div>
+                    <div style={styles.statTrend}>{language === 'ko' ? '정상 작동 중' : 'All systems normal'}</div>
                 </div>
             </div>
 
             <div style={styles.mainGrid}>
-                <section style={styles.sectionCard}>
-                    <h3 style={styles.sectionTitle}>최근 진료 환자</h3>
+                <div style={styles.tableCard}>
+                    <div style={styles.cardHeader}>
+                        <h3 style={styles.cardTitle}>{t.dashboard.waitingTitle}</h3>
+                        <button style={styles.moreBtn}>View All</button>
+                    </div>
                     <table style={styles.table}>
                         <thead>
-                            <tr style={styles.tableHeader}>
-                                <th style={styles.th}>환자명</th>
-                                <th style={styles.th}>진료 항목</th>
-                                <th style={styles.th}>시간</th>
-                                <th style={styles.th}>상태</th>
+                            <tr>
+                                <th style={styles.th}>{t.dashboard.patientName}</th>
+                                <th style={styles.th}>ID</th>
+                                <th style={styles.th}>{t.dashboard.status}</th>
+                                <th style={styles.th}>{t.dashboard.time}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {[
-                                { name: '이민수', type: '정기 검진', time: '13:20', status: '진료중' },
-                                { name: '김지아', type: '내과 상담', time: '12:45', status: '대기' },
-                                { name: '박철수', type: '알레르기 테스트', time: '11:30', status: '완료' },
-                                { name: '최유진', type: '물리 치료', time: '10:15', status: '완료' },
-                            ].map((patient, i) => (
-                                <tr key={i} style={styles.tableRow}>
-                                    <td style={styles.td}>{patient.name}</td>
-                                    <td style={styles.td}>{patient.type}</td>
-                                    <td style={styles.td}>{patient.time}</td>
+                                { name: language === 'ko' ? '김철수' : 'Chulsoo Kim', id: 'P001', status: t.dashboard.waiting, time: '14:20', statusColor: 'var(--warning)' },
+                                { name: language === 'ko' ? '이민수' : 'Minsoo Lee', id: 'P002', status: t.dashboard.inClinic, time: '14:35', statusColor: 'var(--primary-color)' },
+                                { name: language === 'ko' ? '박지민' : 'Jimin Park', id: 'P003', status: t.dashboard.waiting, time: '14:40', statusColor: 'var(--warning)' },
+                                { name: language === 'ko' ? '최현우' : 'Hyunwoo Choi', id: 'P004', status: t.dashboard.completed, time: '14:10', statusColor: 'var(--success)' },
+                            ].map((row, i) => (
+                                <tr key={i} style={styles.tr}>
+                                    <td style={styles.td}><span style={styles.patientName}>{row.name}</span></td>
+                                    <td style={styles.td}>{row.id}</td>
                                     <td style={styles.td}>
-                                        <span style={{
-                                            ...styles.badge,
-                                            backgroundColor: patient.status === '진료중' ? '#dcfce7' : patient.status === '대기' ? '#fef9c3' : '#f1f5f9',
-                                            color: patient.status === '진료중' ? '#166534' : patient.status === '대기' ? '#854d0e' : '#64748b'
-                                        }}>
-                                            {patient.status}
+                                        <span style={{ ...styles.statusTag, backgroundColor: row.statusColor + '15', color: row.statusColor }}>
+                                            {row.status}
                                         </span>
                                     </td>
+                                    <td style={styles.td}>{row.time}</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
-                </section>
+                </div>
 
-                <section style={styles.sectionCard}>
-                    <h3 style={styles.sectionTitle}>시스템 공지사항</h3>
-                    <div style={styles.noticeList}>
-                        <div style={styles.noticeItem}>
-                            <div style={styles.noticeTag}>UPDATE</div>
-                            <p style={styles.noticeText}>v2.4 업데이트 안내: 클라우드 동기화 속도가 개선되었습니다.</p>
-                        </div>
-                        <div style={styles.noticeItem}>
-                            <div style={styles.noticeTag}>INFO</div>
-                            <p style={styles.noticeText}>2월 5일 서버 정기 점검이 예정되어 있습니다 (02:00 ~ 04:00).</p>
+                <div style={styles.sideColumn}>
+                    <div style={styles.scheduleCard}>
+                        <h3 style={styles.cardTitle}>{t.dashboard.schedule}</h3>
+                        <div style={styles.timeline}>
+                            {[
+                                { time: '15:00', task: language === 'ko' ? '정형외과 컨퍼런스' : 'Orthopedic Conference', type: 'meeting' },
+                                { time: '16:30', task: language === 'ko' ? '이민수 환자 수술 상담' : 'Surgery Consultation', type: 'consult' },
+                                { time: '18:00', task: language === 'ko' ? '야간 진료 인수인계' : 'Night Shift Handover', type: 'clinic' },
+                            ].map((item, i) => (
+                                <div key={i} style={styles.timelineItem}>
+                                    <div style={styles.timelineTime}>{item.time}</div>
+                                    <div style={styles.timelineContent}>
+                                        <div style={styles.timelineTask}>{item.task}</div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
-                </section>
+                </div>
             </div>
         </div>
     );
@@ -101,124 +126,192 @@ const Dashboard = () => {
 
 const styles = {
     container: {
-        padding: '2rem',
+        padding: '2.5rem',
         flex: 1,
         overflowY: 'auto',
+        backgroundColor: 'var(--bg-color)',
     },
     header: {
-        marginBottom: '2rem',
+        marginBottom: '2.5rem',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-end',
     },
     title: {
-        fontSize: '1.875rem',
-        fontWeight: '700',
+        fontSize: '2rem',
+        fontWeight: '800',
         color: 'var(--text-main)',
+        letterSpacing: '-0.025em',
     },
     subtitle: {
         color: 'var(--text-muted)',
-        marginTop: '0.25rem',
+        marginTop: '0.5rem',
+        fontSize: '1rem',
+    },
+    timeDisplay: {
+        backgroundColor: 'var(--card-bg)',
+        padding: '0.5rem 1rem',
+        borderRadius: '99px',
+        fontSize: '0.875rem',
+        fontWeight: '600',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        boxShadow: 'var(--shadow-sm)',
+        border: '1px solid var(--border-color)',
+    },
+    pulseIcon: {
+        color: 'var(--success)',
+        fontSize: '0.6rem',
+        animation: 'pulse 2s infinite',
     },
     statsGrid: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+        gridTemplateColumns: 'repeat(4, 1fr)',
         gap: '1.5rem',
-        marginBottom: '2rem',
+        marginBottom: '2.5rem',
     },
     statCard: {
         backgroundColor: 'var(--card-bg)',
-        padding: '1.5rem',
+        padding: '1.75rem',
         borderRadius: 'var(--radius)',
         boxShadow: 'var(--shadow)',
+        border: '1px solid var(--border-color)',
+        transition: 'transform 0.2s',
     },
     statHeader: {
         display: 'flex',
         alignItems: 'center',
-        gap: '0.75rem',
-        marginBottom: '1rem',
+        gap: '1rem',
+        marginBottom: '1.25rem',
     },
     statIcon: {
-        width: '32px',
-        height: '32px',
-        borderRadius: '8px',
+        width: '40px',
+        height: '40px',
+        borderRadius: '10px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         fontSize: '1.2rem',
     },
     statLabel: {
-        fontSize: '0.875rem',
-        fontWeight: '600',
+        fontSize: '0.95rem',
+        fontWeight: '700',
         color: 'var(--text-muted)',
     },
     statValue: {
-        fontSize: '2rem',
-        fontWeight: '700',
-        marginBottom: '0.25rem',
+        fontSize: '2.2rem',
+        fontWeight: '800',
+        marginBottom: '0.4rem',
+        color: 'var(--text-main)',
+    },
+    statUnit: {
+        fontSize: '0.9rem',
+        color: 'var(--text-muted)',
+        marginLeft: '4px',
     },
     statTrend: {
-        fontSize: '0.75rem',
+        fontSize: '0.85rem',
         color: 'var(--text-muted)',
     },
     mainGrid: {
         display: 'grid',
-        gridTemplateColumns: '2fr 1fr',
-        gap: '1.5rem',
+        gridTemplateColumns: 'minmax(0, 2.5fr) 1fr',
+        gap: '2rem',
     },
-    sectionCard: {
+    tableCard: {
         backgroundColor: 'var(--card-bg)',
-        padding: '1.5rem',
+        padding: '1.75rem',
         borderRadius: 'var(--radius)',
         boxShadow: 'var(--shadow)',
+        border: '1px solid var(--border-color)',
     },
-    sectionTitle: {
-        fontSize: '1.125rem',
+    cardHeader: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '1.5rem',
+    },
+    cardTitle: {
+        fontSize: '1.25rem',
+        fontWeight: '700',
+        color: 'var(--text-main)',
+    },
+    moreBtn: {
+        padding: '0.5rem 1rem',
+        borderRadius: '8px',
+        border: '1px solid var(--border-color)',
+        background: 'none',
+        fontSize: '0.85rem',
         fontWeight: '600',
-        marginBottom: '1.25rem',
+        cursor: 'pointer',
+        color: 'var(--text-main)',
     },
     table: {
         width: '100%',
-        borderCollapse: 'collapse',
-    },
-    tableHeader: {
-        borderBottom: '1px solid var(--border-color)',
+        borderCollapse: 'separate',
+        borderSpacing: '0 0.5rem',
     },
     th: {
         textAlign: 'left',
-        padding: '0.75rem 0',
-        fontSize: '0.875rem',
+        padding: '0.75rem 1rem',
+        fontSize: '0.85rem',
         color: 'var(--text-muted)',
-        fontWeight: '500',
-    },
-    td: {
-        padding: '1rem 0',
-        fontSize: '0.9rem',
-        borderBottom: '1px solid #f1f5f9',
-    },
-    badge: {
-        padding: '0.25rem 0.625rem',
-        borderRadius: '9999px',
-        fontSize: '0.75rem',
         fontWeight: '600',
     },
-    noticeList: {
+    tr: {
+        transition: 'all 0.2s',
+    },
+    td: {
+        padding: '1rem',
+        fontSize: '0.9rem',
+        backgroundColor: 'var(--card-bg)',
+        borderTop: '1px solid var(--border-color)',
+        borderBottom: '1px solid var(--border-color)',
+        color: 'var(--text-main)',
+    },
+    patientName: {
+        fontWeight: '700',
+        color: 'var(--text-main)',
+    },
+    statusTag: {
+        padding: '0.3rem 0.75rem',
+        borderRadius: '8px',
+        fontSize: '0.8rem',
+        fontWeight: '700',
+    },
+    sideColumn: {
         display: 'flex',
         flexDirection: 'column',
+        gap: '1.5rem',
+    },
+    scheduleCard: {
+        backgroundColor: 'var(--card-bg)',
+        padding: '1.75rem',
+        borderRadius: 'var(--radius)',
+        boxShadow: 'var(--shadow)',
+        border: '1px solid var(--border-color)',
+    },
+    timeline: {
+        marginTop: '1.5rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1.5rem',
+    },
+    timelineItem: {
+        display: 'flex',
         gap: '1rem',
     },
-    noticeItem: {
-        padding: '1rem',
-        backgroundColor: '#f8fafc',
-        borderRadius: '8px',
-        borderLeft: '4px solid var(--primary-color)',
-    },
-    noticeTag: {
-        fontSize: '0.7rem',
+    timelineTime: {
+        fontSize: '0.85rem',
         fontWeight: '700',
         color: 'var(--primary-color)',
-        marginBottom: '0.25rem',
+        minWidth: '50px',
     },
-    noticeText: {
-        fontSize: '0.875rem',
-        lineHeight: '1.4',
+    timelineTask: {
+        fontSize: '0.9rem',
+        fontWeight: '600',
+        color: 'var(--text-main)',
     },
 };
 

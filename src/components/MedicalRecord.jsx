@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
-const MedicalRecord = () => {
+const MedicalRecord = ({ savedRecords = [], setSavedRecords, selectedRecordId, setSelectedRecordId, language, t }) => {
     const [complaint, setComplaint] = useState('');
     const [soap, setSoap] = useState({
         subjective: '',
@@ -10,6 +12,25 @@ const MedicalRecord = () => {
     });
     const [isListening, setIsListening] = useState({ complaint: false, soap: false });
     const [recognition, setRecognition] = useState(null);
+    const [isExporting, setIsExporting] = useState(false);
+    const pdfRef = useRef(null);
+
+    // 환자 정보 (현재 하드코딩된 상태를 기준으로 함)
+    const patientInfo = {
+        name: language === 'ko' ? '이민수' : 'Minsoo Lee',
+        id: 'P002'
+    };
+
+    // 외부에서 기록 선택 시 로드
+    useEffect(() => {
+        if (selectedRecordId) {
+            const record = savedRecords.find(r => r.id === selectedRecordId);
+            if (record) {
+                setComplaint(record.complaint);
+                setSoap(record.soap);
+            }
+        }
+    }, [selectedRecordId, savedRecords]);
 
     useEffect(() => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -17,10 +38,10 @@ const MedicalRecord = () => {
             const recog = new SpeechRecognition();
             recog.continuous = false;
             recog.interimResults = false;
-            recog.lang = 'ko-KR';
+            recog.lang = language === 'ko' ? 'ko-KR' : 'en-US';
             setRecognition(recog);
         }
-    }, []);
+    }, [language]);
 
     const categorizeSOAP = (transcript) => {
         const categories = {
@@ -45,7 +66,6 @@ const MedicalRecord = () => {
                 }
             }
 
-            // 매칭되는 키워드가 없으면 기본적으로 Subjective에 넣음
             if (!matched) {
                 updatedSoap.subjective = updatedSoap.subjective + (updatedSoap.subjective ? '\n' : '') + sentence;
             }
@@ -56,7 +76,7 @@ const MedicalRecord = () => {
 
     const startListening = (target) => {
         if (!recognition) {
-            alert('이 브라우저는 음성 인식을 지원하지 않아요! ㅠㅠ 크롬을 사용해 주세요!');
+            alert(t.medicalRecord.speechRecognitionNotSupported);
             return;
         }
 
@@ -92,87 +112,243 @@ const MedicalRecord = () => {
         setSoap({ ...soap, [key]: e.target.value });
     };
 
+    const loadRecord = (record) => {
+        setComplaint(record.complaint);
+        setSoap(record.soap);
+        setSelectedRecordId(record.id);
+    };
+
+    const resetEditor = () => {
+        setComplaint('');
+        setSoap({ subjective: '', objective: '', assessment: '', plan: '' });
+        setSelectedRecordId(null);
+    };
+
+    // 타임스탬프 생성 (YYYYMMDDHHmmss)
+    const getTimestamp = () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        return `${year}${month}${day}${hours}${minutes}${seconds}`;
+    };
+
+    const handleSavePDF = async () => {
+        if (!pdfRef.current) return;
+
+        setIsExporting(true);
+        try {
+            const element = pdfRef.current;
+            const canvas = await html2canvas(element, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff'
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const imgWidth = pageWidth - 20;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+            pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+
+            // 1. 파일명 및 폼 데이터 준비
+            const timestamp = getTimestamp();
+            const fileName = `${t.medicalRecord.medicalRecordFilePrefix}-${patientInfo.name}-${timestamp}.pdf`;
+            const pdfBlob = pdf.output('blob');
+
+            const formData = new FormData();
+            formData.append('patientId', patientInfo.id);
+            formData.append('patientName', patientInfo.name);
+            formData.append('pdf', pdfBlob, fileName);
+
+            // 2. 서버에 저장 요청
+            const response = await fetch('http://localhost:3001/api/save-record', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) throw new Error('서버 저장 실패');
+
+            const result = await response.json();
+            console.log('Server response:', result);
+
+            // 브라우저에서도 다운로드 원할 경우 대비 (선택 사항)
+            // pdf.save(fileName);
+
+            // 3. 로컬 상태 업데이트
+            const newRecord = {
+                id: selectedRecordId || Date.now(),
+                date: new Date().toLocaleString(language === 'ko' ? 'ko-KR' : 'en-US'),
+                patient: patientInfo.name,
+                complaint,
+                soap: { ...soap }
+            };
+
+            let updated;
+            if (selectedRecordId) {
+                updated = savedRecords.map(r => r.id === selectedRecordId ? newRecord : r);
+            } else {
+                updated = [newRecord, ...savedRecords];
+                setSelectedRecordId(newRecord.id);
+            }
+            setSavedRecords(updated);
+
+            alert(t.medicalRecord.folderSaved
+                .replace('{patientId}', patientInfo.id)
+                .replace('{fileName}', fileName));
+
+        } catch (error) {
+            console.error('PDF generation or save failed:', error);
+            alert(t.medicalRecord.saveError);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     return (
         <div style={styles.container}>
             <header style={styles.header}>
                 <div style={styles.patientInfo}>
                     <span style={styles.avatar}>MI</span>
                     <div>
-                        <h2 style={styles.patientName}>이민수 (남/45세)</h2>
-                        <p style={styles.patientMeta}>차트번호: P002 | 최종내원: 2024-01-28</p>
+                        <h2 style={styles.patientName}>{patientInfo.name} ({language === 'ko' ? '남/45세' : 'M/45Y'})</h2>
+                        <p style={styles.patientMeta}>{t.medicalRecord.chartNumber}: {patientInfo.id} | {t.medicalRecord.lastVisit}: 2024-01-28</p>
                     </div>
                 </div>
-                <button style={styles.saveBtn}>진료 저장</button>
+                <div style={styles.headerActions}>
+                    <button style={styles.newBtn} onClick={resetEditor}>{t.medicalRecord.newRecord}</button>
+                    <button
+                        style={{ ...styles.saveBtn, backgroundColor: isExporting ? 'var(--text-muted)' : 'var(--primary-color)' }}
+                        onClick={handleSavePDF}
+                        disabled={isExporting}
+                    >
+                        {isExporting ? t.medicalRecord.saving : t.medicalRecord.saveServer}
+                    </button>
+                </div>
             </header>
 
             <div style={styles.content}>
-                <div style={styles.editorArea}>
-                    <div style={styles.section}>
-                        <div style={styles.sectionHeader}>
-                            <h3 style={styles.sectionTitle}>주요 증상 (Chief Complaint)</h3>
-                            <button
-                                style={{
-                                    ...styles.micBtn,
-                                    backgroundColor: isListening.complaint ? 'var(--danger)' : 'var(--primary-light)',
-                                    color: isListening.complaint ? 'white' : 'var(--primary-color)'
-                                }}
-                                onClick={() => isListening.complaint ? stopListening() : startListening('complaint')}
-                            >
-                                {isListening.complaint ? '⏹' : '🎤'}
-                            </button>
+                <div style={styles.leftColumn}>
+                    <div style={styles.editorArea} ref={pdfRef}>
+                        <div style={styles.pdfHeader}>
+                            <div style={styles.pdfLogo}>☁️ MediCloud Medical Report</div>
+                            <div style={styles.pdfDocInfo}>{t.medicalRecord.doctorLabel}: {t.common.doctor} ({t.common.md}) | {new Date().toLocaleDateString(language === 'ko' ? 'ko-KR' : 'en-US')}</div>
                         </div>
-                        <textarea
-                            style={styles.textarea}
-                            placeholder="환자가 호소하는 증상을 입력하세요..."
-                            rows={2}
-                            value={complaint}
-                            onChange={(e) => setComplaint(e.target.value)}
-                        />
+
+                        <div style={styles.section}>
+                            <div style={styles.sectionHeader}>
+                                <h3 style={styles.sectionTitle}>{t.medicalRecord.chiefComplaint}</h3>
+                                {!isExporting && (
+                                    <button
+                                        style={{
+                                            ...styles.micBtn,
+                                            backgroundColor: isListening.complaint ? 'var(--danger)' : 'var(--primary-light)',
+                                            color: isListening.complaint ? 'white' : 'var(--primary-color)'
+                                        }}
+                                        onClick={() => isListening.complaint ? stopListening() : startListening('complaint')}
+                                    >
+                                        {isListening.complaint ? '⏹' : '🎤'}
+                                    </button>
+                                )}
+                            </div>
+                            <textarea
+                                style={styles.textarea}
+                                placeholder={t.medicalRecord.chiefComplaintPlaceholder}
+                                rows={2}
+                                value={complaint}
+                                onChange={(e) => setComplaint(e.target.value)}
+                            />
+                        </div>
+
+                        <div style={styles.soapGrid}>
+                            {[
+                                { key: 'subjective', label: t.medicalRecord.soapSubjective, placeholder: t.medicalRecord.soapSubjectivePlaceholder },
+                                { key: 'objective', label: t.medicalRecord.soapObjective, placeholder: t.medicalRecord.soapObjectivePlaceholder },
+                                { key: 'assessment', label: t.medicalRecord.soapAssessment, placeholder: t.medicalRecord.soapAssessmentPlaceholder },
+                                { key: 'plan', label: t.medicalRecord.soapPlan, placeholder: t.medicalRecord.soapPlanPlaceholder }
+                            ].map((item) => (
+                                <div key={item.key} style={styles.section}>
+                                    <div style={styles.sectionHeader}>
+                                        <h3 style={styles.sectionTitle}>{item.label}</h3>
+                                        {item.key === 'subjective' && !isExporting && (
+                                            <button
+                                                style={{
+                                                    ...styles.micBtn,
+                                                    backgroundColor: isListening.soap ? 'var(--danger)' : 'var(--secondary-light)',
+                                                    color: isListening.soap ? 'white' : 'var(--secondary-color)'
+                                                }}
+                                                onClick={() => isListening.soap ? stopListening() : startListening('soap')}
+                                                title={t.medicalRecord.aiTranscriptionTitle}
+                                            >
+                                                {isListening.soap ? '⏹' : '🎤 AI'}
+                                            </button>
+                                        )}
+                                    </div>
+                                    <textarea
+                                        style={{ ...styles.textarea, height: '140px' }}
+                                        placeholder={item.placeholder}
+                                        value={soap[item.key]}
+                                        onChange={(e) => handleSoapChange(e, item.key)}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                        {isListening.soap && <div style={styles.listeningHint}>🎙️ {t.medicalRecord.aiListening}</div>}
+
+                        <div style={styles.pdfFooter}>
+                            <div style={styles.signatureArea}>
+                                <p>{t.medicalRecord.signature}</p>
+                                <div style={styles.signatureLine}>
+                                    {t.medicalRecord.doctorLabel}: {t.common.doctor} ({t.common.seal})
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div style={styles.soapGrid}>
-                        {[
-                            { key: 'subjective', label: 'S (Subjective) - 주관적 정보', placeholder: '환자의 통증 호소, 증상 등...' },
-                            { key: 'objective', label: 'O (Objective) - 객관적 정보', placeholder: '혈압, 체온, 검사 결과, 의사 소견...' },
-                            { key: 'assessment', label: 'A (Assessment) - 진단 및 평가', placeholder: '추정 진단, 환자 상태 평가...' },
-                            { key: 'plan', label: 'P (Plan) - 치료 계획', placeholder: '처방, 향후 내원 계획, 수술 여부...' }
-                        ].map((item) => (
-                            <div key={item.key} style={styles.section}>
-                                <div style={styles.sectionHeader}>
-                                    <h3 style={styles.sectionTitle}>{item.label}</h3>
-                                    {item.key === 'subjective' && (
-                                        <button
-                                            style={{
-                                                ...styles.micBtn,
-                                                backgroundColor: isListening.soap ? 'var(--danger)' : 'var(--secondary-light)',
-                                                color: isListening.soap ? 'white' : 'var(--secondary-color)'
-                                            }}
-                                            onClick={() => isListening.soap ? stopListening() : startListening('soap')}
-                                            title="전체 음성 입력 및 자동 분류"
-                                        >
-                                            {isListening.soap ? '⏹' : '🎤 AI'}
-                                        </button>
-                                    )}
-                                </div>
-                                <textarea
-                                    style={{ ...styles.textarea, height: '140px' }}
-                                    placeholder={item.placeholder}
-                                    value={soap[item.key]}
-                                    onChange={(e) => handleSoapChange(e, item.key)}
-                                />
-                            </div>
-                        ))}
+                    <div style={styles.savedRecordsArea}>
+                        <h3 style={styles.recordsTitle}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><line x1="10" y1="9" x2="8" y2="9" /></svg>
+                            {t.medicalRecord.recentRecords}
+                        </h3>
+                        <div style={styles.recordList}>
+                            {savedRecords.length === 0 ? (
+                                <p style={styles.emptyMsg}>{t.medicalRecord.noSavedRecords}</p>
+                            ) : (
+                                savedRecords.map(record => (
+                                    <div
+                                        key={record.id}
+                                        style={{
+                                            ...styles.recordItem,
+                                            borderLeft: selectedRecordId === record.id ? '4px solid var(--primary-color)' : '4px solid transparent',
+                                            backgroundColor: selectedRecordId === record.id ? 'var(--primary-light)' : 'var(--card-bg)'
+                                        }}
+                                        onClick={() => loadRecord(record)}
+                                    >
+                                        <div style={styles.recordInfo}>
+                                            <span style={styles.recordPatient}>{record.patient}</span>
+                                            <span style={styles.recordDate}>{record.date}</span>
+                                        </div>
+                                        <p style={styles.recordPreview}>{record.complaint || t.medicalRecord.noComplaintEntered}</p>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
-                    {isListening.soap && <div style={styles.listeningHint}>🎙️ 인공지능이 듣고 있어요! SOAP에 맞춰 분류해 드릴게요.</div>}
                 </div>
 
                 <aside style={styles.sidebar}>
-                    <h3 style={styles.sectionTitle}>과거 이력</h3>
+                    <h3 style={styles.sectionTitle}>{t.medicalRecord.pastHistory}</h3>
                     <div style={styles.historyList}>
                         {[
-                            { date: '2024-01-28', title: '기관지염 추적 관찰' },
-                            { date: '2024-01-14', title: '기침 및 가래 증상' },
-                            { date: '2023-12-05', title: '정기 종합 검진' },
+                            { date: '2024-01-28', title: language === 'ko' ? '기관지염 추적 관찰' : 'Bronchitis follow-up' },
+                            { date: '2024-01-14', title: language === 'ko' ? '기침 및 가래 증상' : 'Cough and sputum' },
+                            { date: '2023-12-05', title: language === 'ko' ? '정기 종합 검진' : 'Regular check-up' },
                         ].map((h, i) => (
                             <div key={i} style={styles.historyItem}>
                                 <span style={styles.historyDate}>{h.date}</span>
@@ -181,10 +357,10 @@ const MedicalRecord = () => {
                         ))}
                     </div>
                     <div style={{ ...styles.section, marginTop: '2rem', padding: '1rem' }}>
-                        <h3 style={styles.sectionTitle}>처방 (Prescription)</h3>
+                        <h3 style={styles.sectionTitle}>{t.medicalRecord.prescription}</h3>
                         <div style={styles.prescriptionBox}>
-                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>등록된 처방이 없습니다.</p>
-                            <button style={styles.miniBtn}>+ 약 처방 추가</button>
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t.medicalRecord.noPrescription}</p>
+                            <button style={styles.miniBtn}>{t.medicalRecord.addPrescription}</button>
                         </div>
                     </div>
                 </aside>
@@ -194,25 +370,43 @@ const MedicalRecord = () => {
 };
 
 const styles = {
-    container: { padding: '2rem', flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' },
-    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', backgroundColor: 'var(--card-bg)', padding: '1.25rem 1.5rem', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)' },
+    container: { padding: '2rem', flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', background: 'var(--bg-color)' },
+    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', backgroundColor: 'var(--card-bg)', padding: '1.25rem 1.5rem', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', border: '1px solid var(--border-color)' },
     patientInfo: { display: 'flex', alignItems: 'center', gap: '1rem' },
     avatar: { width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'var(--secondary-light)', color: 'var(--secondary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '1.2rem' },
     patientName: { fontSize: '1.25rem', fontWeight: '700' },
     patientMeta: { fontSize: '0.875rem', color: 'var(--text-muted)' },
-    saveBtn: { padding: '0.75rem 1.5rem', backgroundColor: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' },
+    headerActions: { display: 'flex', gap: '1rem' },
+    newBtn: { padding: '0.75rem 1.5rem', backgroundColor: 'var(--card-bg)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '12px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' },
+    saveBtn: { padding: '0.75rem 1.5rem', backgroundColor: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.2)', transition: 'all 0.2s' },
     content: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '2rem', flex: 1 },
-    editorArea: { display: 'flex', flexDirection: 'column', gap: '1.5rem' },
+    leftColumn: { display: 'flex', flexDirection: 'column', gap: '2rem' },
+    editorArea: { display: 'flex', flexDirection: 'column', gap: '1.5rem', backgroundColor: 'var(--card-bg)', padding: '24px', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)' },
+    pdfHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingBottom: '1rem', borderBottom: '2px solid var(--primary-color)', marginBottom: '1rem' },
+    pdfLogo: { fontSize: '1.2rem', fontWeight: '800', color: 'var(--primary-color)' },
+    pdfDocInfo: { fontSize: '0.75rem', color: 'var(--text-muted)' },
     soapGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' },
-    section: { backgroundColor: 'var(--card-bg)', padding: '1.5rem', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', position: 'relative' },
+    section: { backgroundColor: 'var(--bg-color)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', position: 'relative' },
     sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' },
-    sectionTitle: { fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-main)' },
+    sectionTitle: { fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.05em' },
     micBtn: { padding: '4px 12px', borderRadius: '20px', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600', transition: 'all 0.2s' },
-    textarea: { width: '100%', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '0.9rem', lineHeight: '1.6', outline: 'none', resize: 'none', fontFamily: 'inherit' },
+    textarea: { width: '100%', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '0.95rem', lineHeight: '1.6', outline: 'none', resize: 'none', fontFamily: 'inherit', backgroundColor: 'transparent', color: 'var(--text-main)' },
     listeningHint: { marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--danger)', fontWeight: '600', textAlign: 'center' },
-    sidebar: { backgroundColor: 'var(--card-bg)', padding: '1.5rem', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', height: 'fit-content' },
+    pdfFooter: { marginTop: '2rem', paddingTop: '2rem', borderTop: '1px dashed var(--border-color)' },
+    signatureArea: { textAlign: 'right' },
+    signatureLine: { marginTop: '1rem', fontWeight: '700', fontSize: '1rem' },
+    savedRecordsArea: { backgroundColor: 'var(--card-bg)', padding: '1.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow)' },
+    recordsTitle: { fontSize: '1rem', fontWeight: '700', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-main)' },
+    recordList: { display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '300px', overflowY: 'auto' },
+    recordItem: { padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-color)', cursor: 'pointer', transition: 'all 0.2s' },
+    recordInfo: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' },
+    recordPatient: { fontWeight: '700', fontSize: '0.9rem' },
+    recordDate: { fontSize: '0.75rem', color: 'var(--text-muted)' },
+    recordPreview: { fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+    emptyMsg: { textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', padding: '2rem 0' },
+    sidebar: { backgroundColor: 'var(--card-bg)', padding: '1.5rem', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', height: 'fit-content', border: '1px solid var(--border-color)' },
     historyList: { display: 'flex', flexDirection: 'column', gap: '1rem' },
-    historyItem: { paddingBottom: '0.75rem', borderBottom: '1px solid #f1f5f9' },
+    historyItem: { paddingBottom: '0.75rem', borderBottom: '1px solid var(--border-color)' },
     historyDate: { fontSize: '0.75rem', fontWeight: '600', color: 'var(--primary-color)' },
     historyTitle: { fontSize: '0.875rem', marginTop: '0.25rem' },
     prescriptionBox: { border: '1px dashed var(--border-color)', borderRadius: '8px', padding: '1rem', textAlign: 'center' },
