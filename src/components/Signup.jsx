@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { countries } from '../constants/countries';
 
 const Signup = ({ onSwitchToLogin, language, t }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [name, setName] = useState('');
+    const [country, setCountry] = useState('');
+    const [hospitalName, setHospitalName] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -25,6 +28,8 @@ const Signup = ({ onSwitchToLogin, language, t }) => {
             options: {
                 data: {
                     full_name: name,
+                    country: country,
+                    hospital_name: hospitalName
                 },
             },
         });
@@ -64,6 +69,7 @@ const Signup = ({ onSwitchToLogin, language, t }) => {
                         />
                     </div>
 
+
                     <div style={styles.inputGroup}>
                         <label style={styles.label}>{t.auth.email}</label>
                         <input
@@ -95,6 +101,35 @@ const Signup = ({ onSwitchToLogin, language, t }) => {
                             style={styles.input}
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
+                            required
+                        />
+                    </div>
+
+                    <div style={styles.inputGroup}>
+                        <label style={styles.label}>{t.auth.country}</label>
+                        <select
+                            style={styles.input}
+                            value={country}
+                            onChange={(e) => setCountry(e.target.value)}
+                            required
+                        >
+                            <option value="">{t.auth.countryPlaceholder}</option>
+                            {countries.map((c) => (
+                                <option key={c.value} value={c.value}>
+                                    {c.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div style={styles.inputGroup}>
+                        <label style={styles.label}>{t.auth.hospitalName}</label>
+                        <input
+                            type="text"
+                            placeholder={t.auth.hospitalNamePlaceholder}
+                            style={styles.input}
+                            value={hospitalName}
+                            onChange={(e) => setHospitalName(e.target.value)}
                             required
                         />
                     </div>
@@ -162,7 +197,11 @@ const styles = {
     form: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '1.5rem',
+        gap: '1.25rem',
+    },
+    inputRow: {
+        display: 'flex',
+        gap: '1rem',
     },
     inputGroup: {
         display: 'flex',

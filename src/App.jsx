@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard';
 import PatientList from './components/PatientList';
 import MedicalRecord from './components/MedicalRecord';
 import PatientRegistration from './components/PatientRegistration';
+import ProfileEdit from './components/ProfileEdit';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import { translations } from './translations';
@@ -17,6 +18,8 @@ function App() {
   const [selectedRecordId, setSelectedRecordId] = useState(null);
   const [editingPatient, setEditingPatient] = useState(null);
   const [activePatient, setActivePatient] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const [isProfileEditing, setIsProfileEditing] = useState(false);
   const [language, setLanguage] = useState(localStorage.getItem('medicloud_lang') || 'ko');
   const [theme, setTheme] = useState(localStorage.getItem('medicloud_theme') || 'light');
 
@@ -26,16 +29,29 @@ function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      if (session?.user) fetchUserProfile(session.user.id);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session?.user) fetchUserProfile(session.user.id);
+      else setUserProfile(null);
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const fetchUserProfile = async (userId) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (data) setUserProfile(data);
+  };
 
   // 테마 적용
   useEffect(() => {
@@ -154,10 +170,6 @@ function App() {
           else if (activeTab !== 'registration') setEditingPatient(null);
 
           if (tab !== 'records') {
-            // Reset activePatient if we leave records, 
-            // but maybe we want to keep it? 
-            // In a real EMR, selecting a patient persists.
-            // Let's reset for now to show the flow.
             setActivePatient(null);
           }
           setActiveTab(tab);
@@ -170,12 +182,28 @@ function App() {
         theme={theme}
         toggleTheme={toggleTheme}
         user={session.user}
+        profile={userProfile}
+        onEditProfile={() => setIsProfileEditing(true)}
         onLogout={() => supabase.auth.signOut()}
         t={t}
       />
       <main style={styles.main}>
         {renderContent()}
       </main>
+
+      {isProfileEditing && userProfile && (
+        <ProfileEdit
+          profile={userProfile}
+          onSave={() => {
+            fetchUserProfile(session.user.id);
+            setIsProfileEditing(false);
+            alert(t.profile.saveSuccess);
+          }}
+          onCancel={() => setIsProfileEditing(false)}
+          language={language}
+          t={t}
+        />
+      )}
     </div>
   );
 }

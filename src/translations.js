@@ -64,6 +64,8 @@ export const translations = {
             password: '비밀번호',
             confirmPassword: '비밀번호 확인',
             name: '성함 (진료의)',
+            country: '국가',
+            hospitalName: '소속 병원명',
             signupBtn: '계정 생성하기',
             loginBtn: '로그인하기',
             backToLogin: '이미 계정이 있으신가요?',
@@ -71,6 +73,8 @@ export const translations = {
             emailPlaceholder: 'doctor@medicloud.com',
             passwordPlaceholder: '6자리 이상 입력',
             namePlaceholder: '홍길동',
+            countryPlaceholder: '대한민국',
+            hospitalNamePlaceholder: '메디클라우드 병원',
             signupSuccess: '회원가입이 완료되었습니다! 로그인해 주세요.',
             signupError: '가입 중 오류가 발생했습니다.',
             loginError: '이메일 또는 비밀번호를 확인해 주세요.',
@@ -128,6 +132,13 @@ export const translations = {
             details: '상세',
             records: '기록',
             noPatients: '등록된 환자가 없습니다.',
+        },
+        profile: {
+            title: '의사 정보 수정',
+            subtitle: '프로필 및 소속 정보 관리',
+            editBtn: '정보 수정',
+            saveSuccess: '프로필이 성공적으로 업데이트되었습니다.',
+            saveError: '프로필 업데이트 중 오류가 발생했습니다.',
         }
     },
     en: {
@@ -195,6 +206,8 @@ export const translations = {
             password: 'Password',
             confirmPassword: 'Confirm Password',
             name: 'Full Name (MD)',
+            country: 'Country',
+            hospitalName: 'Hospital Name',
             signupBtn: 'Create Account',
             loginBtn: 'Login',
             backToLogin: 'Already have an account?',
@@ -202,6 +215,8 @@ export const translations = {
             emailPlaceholder: 'doctor@medicloud.com',
             passwordPlaceholder: 'Min. 6 characters',
             namePlaceholder: 'John Doe',
+            countryPlaceholder: 'South Korea',
+            hospitalNamePlaceholder: 'MediCloud Hospital',
             signupSuccess: 'Registration successful! Please login.',
             signupError: 'An error occurred during sign up.',
             loginError: 'Please check your email or password.',
@@ -259,6 +274,13 @@ export const translations = {
             details: 'Details',
             records: 'Records',
             noPatients: 'No patients registered.',
+        },
+        profile: {
+            title: 'Edit Doctor Profile',
+            subtitle: 'Manage profile and organizational info',
+            editBtn: 'Edit Info',
+            saveSuccess: 'Profile updated successfully.',
+            saveError: 'An error occurred while updating profile.',
         }
     }
 };
