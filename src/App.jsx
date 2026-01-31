@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import PatientList from './components/PatientList';
 import MedicalRecord from './components/MedicalRecord';
+import PatientRegistration from './components/PatientRegistration';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import { translations } from './translations';
@@ -14,6 +15,8 @@ function App() {
   const [authView, setAuthView] = useState('login'); // 'login' or 'signup'
   const [savedRecords, setSavedRecords] = useState([]);
   const [selectedRecordId, setSelectedRecordId] = useState(null);
+  const [editingPatient, setEditingPatient] = useState(null);
+  const [activePatient, setActivePatient] = useState(null);
   const [language, setLanguage] = useState(localStorage.getItem('medicloud_lang') || 'ko');
   const [theme, setTheme] = useState(localStorage.getItem('medicloud_theme') || 'light');
 
@@ -69,16 +72,47 @@ function App() {
     setActiveTab('records');
   };
 
+  const handleEditPatient = (patient) => {
+    setEditingPatient(patient);
+    setActiveTab('registration');
+  };
+
+  const handleStartConsultation = (patient) => {
+    setActivePatient(patient);
+    setSelectedRecordId(null); // Clear previous record selection for fresh start
+    setActiveTab('records');
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard language={language} t={t} />;
       case 'patients':
-        return <PatientList language={language} t={t} />;
+        return (
+          <PatientList
+            language={language}
+            t={t}
+            onEditPatient={handleEditPatient}
+            onStartConsultation={handleStartConsultation}
+          />
+        );
+      case 'registration':
+        return (
+          <PatientRegistration
+            language={language}
+            t={t}
+            initialData={editingPatient}
+            onRegisterSuccess={() => {
+              setEditingPatient(null);
+              setActiveTab('patients');
+            }}
+          />
+        );
       case 'records':
         return (
           <MedicalRecord
-            savedRecords={savedRecords}
+            activePatient={activePatient}
+            savedRecords={filteredRecords}
             setSavedRecords={handleUpdateRecords}
             selectedRecordId={selectedRecordId}
             setSelectedRecordId={setSelectedRecordId}
@@ -107,12 +141,29 @@ function App() {
     );
   }
 
+  const filteredRecords = activePatient
+    ? savedRecords.filter(r => r.patientId === activePatient.chart_id)
+    : savedRecords;
+
   return (
     <div style={styles.appContainer}>
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        savedRecords={savedRecords}
+        setActiveTab={(tab) => {
+          if (tab !== 'registration') setEditingPatient(null);
+          else if (activeTab !== 'registration') setEditingPatient(null);
+
+          if (tab !== 'records') {
+            // Reset activePatient if we leave records, 
+            // but maybe we want to keep it? 
+            // In a real EMR, selecting a patient persists.
+            // Let's reset for now to show the flow.
+            setActivePatient(null);
+          }
+          setActiveTab(tab);
+        }}
+        savedRecords={filteredRecords}
+        activePatient={activePatient}
         onRecordClick={handleRecordSelect}
         language={language}
         toggleLanguage={toggleLanguage}

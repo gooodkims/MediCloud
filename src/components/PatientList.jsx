@@ -1,63 +1,124 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 
-const PatientList = () => {
+const PatientList = ({ language, t, onEditPatient, onStartConsultation }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    const [patients, setPatients] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    const patients = [
-        { id: 'P001', name: '김지아', gender: '여', age: 28, lastVisit: '2024-01-20', phone: '010-1234-5678' },
-        { id: 'P002', name: '이민수', gender: '남', age: 45, lastVisit: '2024-01-28', phone: '010-9876-5432' },
-        { id: 'P003', name: '박철수', gender: '남', age: 32, lastVisit: '2024-01-15', phone: '010-5555-4444' },
-        { id: 'P004', name: '최유진', gender: '여', age: 39, lastVisit: '2024-01-10', phone: '010-8888-7777' },
-        { id: 'P005', name: '정현우', gender: '남', age: 52, lastVisit: '2024-01-05', phone: '010-2222-3333' },
-    ];
+    useEffect(() => {
+        fetchPatients();
+    }, []);
+
+    const fetchPatients = async () => {
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('patients')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setPatients(data || []);
+        } catch (error) {
+            console.error('Error fetching patients:', error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const calculateAge = (birthDate) => {
+        if (!birthDate) return '??';
+        const birth = new Date(birthDate);
+        const today = new Date();
+        let age = today.getFullYear() - birth.getFullYear();
+        const m = today.getMonth() - birth.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+            age--;
+        }
+        return age;
+    };
+
+    const filteredPatients = patients.filter(p =>
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.chart_id.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     return (
         <div style={styles.container}>
             <header style={styles.header}>
-                <h2 style={styles.title}>환자 관리</h2>
+                <h2 style={styles.title}>{t.patientList.title}</h2>
                 <div style={styles.actions}>
                     <div style={styles.searchWrapper}>
                         <span style={styles.searchIcon}>🔍</span>
                         <input
                             type="text"
-                            placeholder="환자명 또는 차트 번호 검색"
+                            placeholder={t.patientList.searchPlaceholder}
                             style={styles.searchInput}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <button style={styles.addButton}>+ 새 환자 등록</button>
+                    {/* Note: This button navigation is handled via activeTab in App.jsx, 
+                        but for now we keep it for UI completeness or fix its action if needed */}
+                    <button style={styles.addButton}>{t.patientList.addButton}</button>
                 </div>
             </header>
 
             <div style={styles.card}>
-                <table style={styles.table}>
-                    <thead>
-                        <tr style={styles.tableHeader}>
-                            <th style={styles.th}>차트 번호</th>
-                            <th style={styles.th}>성함</th>
-                            <th style={styles.th}>성별/나이</th>
-                            <th style={styles.th}>연락처</th>
-                            <th style={styles.th}>최근 내원일</th>
-                            <th style={styles.th}>관리</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {patients.filter(p => p.name.includes(searchTerm) || p.id.includes(searchTerm)).map((patient) => (
-                            <tr key={patient.id} style={styles.tableRow}>
-                                <td style={{ ...styles.td, fontWeight: '600', color: 'var(--primary-color)' }}>{patient.id}</td>
-                                <td style={styles.td}>{patient.name}</td>
-                                <td style={styles.td}>{patient.gender} / {patient.age}세</td>
-                                <td style={styles.td}>{patient.phone}</td>
-                                <td style={styles.td}>{patient.lastVisit}</td>
-                                <td style={styles.td}>
-                                    <button style={styles.actionBtn}>상세</button>
-                                    <button style={{ ...styles.actionBtn, color: 'var(--secondary-color)' }}>기록</button>
-                                </td>
+                {loading ? (
+                    <div style={styles.emptyState}>{t.common.loading}</div>
+                ) : filteredPatients.length === 0 ? (
+                    <div style={styles.emptyState}>{t.patientList.noPatients}</div>
+                ) : (
+                    <table style={styles.table}>
+                        <thead>
+                            <tr style={styles.tableHeader}>
+                                <th style={styles.th}>{t.patientList.tableHeader.chartId}</th>
+                                <th style={styles.th}>{t.patientList.tableHeader.name}</th>
+                                <th style={styles.th}>{t.patientList.tableHeader.genderAge}</th>
+                                <th style={styles.th}>{t.patientList.tableHeader.phone}</th>
+                                <th style={styles.th}>{t.patientList.tableHeader.status}</th>
+                                <th style={styles.th}>{t.patientList.tableHeader.actions}</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {filteredPatients.map((patient) => (
+                                <tr key={patient.id} style={styles.tableRow}>
+                                    <td style={{ ...styles.td, fontWeight: '600', color: 'var(--primary-color)' }}>{patient.chart_id}</td>
+                                    <td style={styles.td}>{patient.name}</td>
+                                    <td style={styles.td}>
+                                        {t.patientRegistration[patient.gender] || patient.gender} / {calculateAge(patient.birth_date)}세
+                                    </td>
+                                    <td style={styles.td}>{patient.phone || '-'}</td>
+                                    <td style={styles.td}>
+                                        <span style={{
+                                            ...styles.badge,
+                                            backgroundColor: patient.active ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                            color: patient.active ? '#10b981' : '#ef4444'
+                                        }}>
+                                            {patient.active ? 'Active' : 'Inactive'}
+                                        </span>
+                                    </td>
+                                    <td style={styles.td}>
+                                        <button
+                                            style={styles.actionBtn}
+                                            onClick={() => onEditPatient(patient)}
+                                        >
+                                            {t.patientList.details}
+                                        </button>
+                                        <button
+                                            style={{ ...styles.actionBtn, color: 'var(--secondary-color)' }}
+                                            onClick={() => onStartConsultation(patient)}
+                                        >
+                                            {t.patientList.records}
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
             </div>
         </div>
     );
@@ -153,6 +214,20 @@ const styles = {
         marginRight: '1rem',
         fontSize: '0.85rem',
     },
+    badge: {
+        padding: '0.25rem 0.75rem',
+        borderRadius: '20px',
+        fontSize: '0.75rem',
+        fontWeight: '700',
+        textTransform: 'uppercase',
+    },
+    emptyState: {
+        padding: '3rem',
+        textAlign: 'center',
+        color: 'var(--text-muted)',
+        fontSize: '1rem',
+        fontWeight: '500',
+    }
 };
 
 export default PatientList;

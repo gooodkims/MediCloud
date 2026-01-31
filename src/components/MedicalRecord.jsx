@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
-const MedicalRecord = ({ savedRecords = [], setSavedRecords, selectedRecordId, setSelectedRecordId, language, t }) => {
+const MedicalRecord = ({ activePatient, savedRecords = [], setSavedRecords, selectedRecordId, setSelectedRecordId, language, t }) => {
     const [complaint, setComplaint] = useState('');
     const [soap, setSoap] = useState({
         subjective: '',
@@ -15,11 +15,26 @@ const MedicalRecord = ({ savedRecords = [], setSavedRecords, selectedRecordId, s
     const [isExporting, setIsExporting] = useState(false);
     const pdfRef = useRef(null);
 
-    // 환자 정보 (현재 하드코딩된 상태를 기준으로 함)
+    // 환자 정보 (전달받은 activePatient가 있으면 사용, 없으면 기본값)
     const patientInfo = {
-        name: language === 'ko' ? '이민수' : 'Minsoo Lee',
-        id: 'P002'
+        name: activePatient?.name || (language === 'ko' ? '이민수' : 'Minsoo Lee'),
+        id: activePatient?.chart_id || 'P002',
+        gender: activePatient?.gender || 'male',
+        birthDate: activePatient?.birth_date || '1979-01-01'
     };
+
+    const calculateAge = (birthDate) => {
+        if (!birthDate) return '??';
+        const birth = new Date(birthDate);
+        const today = new Date();
+        let age = today.getFullYear() - birth.getFullYear();
+        const m = today.getMonth() - birth.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+            age--;
+        }
+        return age;
+    };
+
 
     // 외부에서 기록 선택 시 로드
     useEffect(() => {
@@ -36,8 +51,8 @@ const MedicalRecord = ({ savedRecords = [], setSavedRecords, selectedRecordId, s
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             const recog = new SpeechRecognition();
-            recog.continuous = false;
-            recog.interimResults = false;
+            recog.continuous = true;
+            recog.interimResults = true;
             recog.lang = language === 'ko' ? 'ko-KR' : 'en-US';
             setRecognition(recog);
         }
@@ -45,29 +60,50 @@ const MedicalRecord = ({ savedRecords = [], setSavedRecords, selectedRecordId, s
 
     const categorizeSOAP = (transcript) => {
         const categories = {
-            subjective: ['아파요', '통증', '불편', '어지러', '기침', '가래', '열이', '힘들'],
-            objective: ['혈압', '체온', '수치', '검사', '소견', '관찰', '맥박', '당뇨'],
-            assessment: ['진단', '의심', '상태', '판단', '가능성', '결과', '확인됨'],
-            plan: ['처방', '내원', '예약', '복용', '치료', '수술', '경과', '조절']
+            objective: [
+                '혈압', '체온', '수치', '검사', '소견', '관찰', '맥박', '당뇨', '혈당', '산소포화도', '심음', '폐음',
+                '압통', '종창', '발적', 'X선', '초음파', 'CT', 'MRI', '혈액', '소변', '심전도', '내시경', '청진',
+                'BP', 'BT', 'HR', 'RR', 'SpO2', 'Lab', 'X-ray', 'ECG', 'EKG', 'Physical', '결과는', '수치는', '재보니'
+            ],
+            assessment: [
+                '진단', '의심', '상태', '판단', '가능성', '결과', '확인됨', '고혈압', '당뇨병', '감기', '기관지염',
+                '폐렴', '위염', '장염', '협심증', '부정맥', '갑상선', '빈혈', '우울증', '불안',
+                'Dx', 'Diagnosis', 'R/O', 'Impression', 'Acute', 'Chronic', '질환은', '병명은', '의심되네요'
+            ],
+            plan: [
+                '처방', '내원', '예약', '복용', '치료', '수술', '경과', '조절', '교육', '입원', '퇴원', '재활',
+                '정밀검사', '추적', '협진', '투약', '하루 세번', '식후', '취침전', '금식', '주의사항',
+                'Plan', 'Prescribe', 'Rx', 'Tx', 'F/U', '약은', '치료는', '다음주에'
+            ],
+            subjective: [
+                '아파요', '통증', '불편', '어지러', '기침', '가래', '열이', '힘들', '피로', '무력', '저녁에', '밤에', '두통',
+                '시림', '부음', '가려움', '속쓰림', '메스꺼움', '구토', '설사', '변비', '흉통', '호흡', '두근',
+                '식욕', '체중', '오한', '발열', '근육통', '관절통', '저림', '마비', '감각', '불면',
+                'pain', 'ache', 'discomfort', 'dizzy', 'cough', 'sputum', 'fever', 'tired', 'fatigue'
+            ]
         };
 
         let updatedSoap = { ...soap };
-        const sentences = transcript.split(/[.?!]\s*/);
+        // Split by punctuation or common verbal conjunctions
+        const segments = transcript.split(/[.?!]|\s{2,}|그리고|그래서|그런데/).map(s => s.trim()).filter(Boolean);
 
-        sentences.forEach(sentence => {
-            if (!sentence.trim()) return;
-
+        segments.forEach(segment => {
+            const lowerSegment = segment.toLowerCase();
             let matched = false;
-            for (const [key, keywords] of Object.entries(categories)) {
-                if (keywords.some(keyword => sentence.includes(keyword))) {
-                    updatedSoap[key] = updatedSoap[key] + (updatedSoap[key] ? '\n' : '') + sentence;
+
+            // Priority: O, A, P, then S
+            const priorityOrder = ['objective', 'assessment', 'plan', 'subjective'];
+
+            for (const key of priorityOrder) {
+                if (categories[key].some(keyword => lowerSegment.includes(keyword.toLowerCase()))) {
+                    updatedSoap[key] = updatedSoap[key] + (updatedSoap[key] ? '\n' : '') + segment;
                     matched = true;
                     break;
                 }
             }
 
             if (!matched) {
-                updatedSoap.subjective = updatedSoap.subjective + (updatedSoap.subjective ? '\n' : '') + sentence;
+                updatedSoap.subjective = updatedSoap.subjective + (updatedSoap.subjective ? '\n' : '') + segment;
             }
         });
 
@@ -81,25 +117,35 @@ const MedicalRecord = ({ savedRecords = [], setSavedRecords, selectedRecordId, s
         }
 
         setIsListening({ ...isListening, [target]: true });
-        recognition.start();
 
+        // Reset result index tracking if needed, though recognition object is recreating
         recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            if (target === 'complaint') {
-                setComplaint(prev => prev + (prev ? ' ' : '') + transcript);
-            } else {
-                categorizeSOAP(transcript);
+            let finalTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript;
+                }
             }
-            setIsListening({ ...isListening, [target]: false });
+
+            if (finalTranscript) {
+                if (target === 'complaint') {
+                    setComplaint(prev => prev + (prev ? ' ' : '') + finalTranscript);
+                } else {
+                    categorizeSOAP(finalTranscript);
+                }
+            }
         };
 
-        recognition.onerror = () => {
+        recognition.onerror = (event) => {
+            console.error('STT Error:', event.error);
             setIsListening({ ...isListening, [target]: false });
         };
 
         recognition.onend = () => {
             setIsListening({ ...isListening, [target]: false });
         };
+
+        recognition.start();
     };
 
     const stopListening = () => {
@@ -186,6 +232,7 @@ const MedicalRecord = ({ savedRecords = [], setSavedRecords, selectedRecordId, s
                 id: selectedRecordId || Date.now(),
                 date: new Date().toLocaleString(language === 'ko' ? 'ko-KR' : 'en-US'),
                 patient: patientInfo.name,
+                patientId: patientInfo.id,
                 complaint,
                 soap: { ...soap }
             };
@@ -217,8 +264,12 @@ const MedicalRecord = ({ savedRecords = [], setSavedRecords, selectedRecordId, s
                 <div style={styles.patientInfo}>
                     <span style={styles.avatar}>MI</span>
                     <div>
-                        <h2 style={styles.patientName}>{patientInfo.name} ({language === 'ko' ? '남/45세' : 'M/45Y'})</h2>
-                        <p style={styles.patientMeta}>{t.medicalRecord.chartNumber}: {patientInfo.id} | {t.medicalRecord.lastVisit}: 2024-01-28</p>
+                        <h2 style={styles.patientName}>
+                            {patientInfo.name} ({t.patientRegistration[patientInfo.gender] || patientInfo.gender}/{calculateAge(patientInfo.birthDate)}세)
+                        </h2>
+                        <p style={styles.patientMeta}>
+                            {t.medicalRecord.chartNumber}: {patientInfo.id} | {t.medicalRecord.lastVisit}: {activePatient ? 'N/A' : '2024-01-28'}
+                        </p>
                     </div>
                 </div>
                 <div style={styles.headerActions}>
@@ -345,16 +396,16 @@ const MedicalRecord = ({ savedRecords = [], setSavedRecords, selectedRecordId, s
                 <aside style={styles.sidebar}>
                     <h3 style={styles.sectionTitle}>{t.medicalRecord.pastHistory}</h3>
                     <div style={styles.historyList}>
-                        {[
-                            { date: '2024-01-28', title: language === 'ko' ? '기관지염 추적 관찰' : 'Bronchitis follow-up' },
-                            { date: '2024-01-14', title: language === 'ko' ? '기침 및 가래 증상' : 'Cough and sputum' },
-                            { date: '2023-12-05', title: language === 'ko' ? '정기 종합 검진' : 'Regular check-up' },
-                        ].map((h, i) => (
-                            <div key={i} style={styles.historyItem}>
-                                <span style={styles.historyDate}>{h.date}</span>
-                                <p style={styles.historyTitle}>{h.title}</p>
-                            </div>
-                        ))}
+                        {savedRecords.length === 0 ? (
+                            <p style={styles.historyTitle}>{t.medicalRecord.noSavedRecords}</p>
+                        ) : (
+                            savedRecords.slice(0, 5).map((h, i) => (
+                                <div key={i} style={styles.historyItem}>
+                                    <span style={styles.historyDate}>{h.date.split(',')[0] || h.date}</span>
+                                    <p style={styles.historyTitle}>{h.complaint || t.medicalRecord.noComplaintEntered}</p>
+                                </div>
+                            ))
+                        )}
                     </div>
                     <div style={{ ...styles.section, marginTop: '2rem', padding: '1rem' }}>
                         <h3 style={styles.sectionTitle}>{t.medicalRecord.prescription}</h3>
